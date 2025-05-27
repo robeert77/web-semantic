@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfer Date Device-uri Electronice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .step h3 {
+            color: #2c5aa0;
+            margin-top: 0;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .table-container {
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .form-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .step-counter {
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Transfer Date Device-uri Electronice</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 30px;">
+            Demonstrație transfer date între RDF4J → JSON-Server → GraphQL-Server
+        </p>
+
+        <!-- Pas 1: RDF4J -->
+        <div class="step" id="step1">
+            <h3><span class="step-counter">1</span>Extragere Date din RDF4J</h3>
+            <p>Citește device-urile electronice din baza RDF4J cu filtrare (preț < 2000 lei)</p>
+            <button class="btn" id="btn1" onclick="executeStep1()">
+                📥 Încarcă din RDF4J
+            </button>
+            <div class="loading" id="loading1">
+                <div class="spinner"></div>
+                <p>Se încarcă datele din RDF4J...</p>
+            </div>
+            <div id="status1"></div>
+            <div class="table-container hidden" id="table1-container">
+                <h4>Tabel 1 - Date din RDF4J (afișare unificată):</h4>
+                <table id="table1">
+                    <thead>
+                        <tr>
+                            <th>Tip Device</th>
+                            <th>Categorie</th>
+                            <th>Model</th>
+                            <th>Brand</th>
+                            <th>Preț (lei)</th>
+                            <th>An</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pas 2: Transfer la JSON-Server -->
+        <div class="step" id="step2">
+            <h3><span class="step-counter">2</span>Transfer la JSON-Server (REST)</h3>
+            <p>Transferă datele din Tabelul 1 către JSON-Server</p>
+            <button class="btn" id="btn2" onclick="executeStep2()" disabled>
+                📤 Transfer la JSON-Server
+            </button>
+            <div class="loading" id="loading2">
+                <div class="spinner"></div>
+                <p>Se transferă datele la JSON-Server...</p>
+            </div>
+            <div id="status2"></div>
+        </div>
+
+        <!-- Pas 3: Citire din JSON-Server -->
+        <div class="step" id="step3">
+            <h3><span class="step-counter">3</span>Citire din JSON-Server cu Filtrare</h3>
+            <p>Citește datele din JSON-Server cu filtrare (doar brandurile Apple) și populează dropdown-ul</p>
+            <button class="btn" id="btn3" onclick="executeStep3()" disabled>
+                📋 Citește din JSON-Server
+            </button>
+            <div class="loading" id="loading3">
+                <div class="spinner"></div>
+                <p>Se încarcă datele din JSON-Server...</p>
+            </div>
+            <div id="status3"></div>
+            <div class="table-container hidden" id="table2-container">
+                <h4>Tabel 2 - Date din JSON-Server (afișare unificată):</h4>
+                <table id="table2">
+                    <thead>
+                        <tr>
+                            <th>Tip Device</th>
+                            <th>Categorie</th>
+                            <th>Model</th>
+                            <th>Brand</th>
+                            <th>Preț (lei)</th>
+                            <th>An</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pas 4: Formular pentru device nou -->
+        <div class="step" id="step4">
+            <h3><span class="step-counter">4</span>Adăugare Device Nou + Transfer la GraphQL</h3>
+            <p>Completează formularul pentru un device nou și transferă toate datele la GraphQL-Server</p>
+
+            <div class="form-container">
+                <h4>📝 Formular Device Nou:</h4>
+                <div class="form-group">
+                    <label for="deviceType">Tip Device (Dropdown):</label>
+                    <select id="deviceType">
+                        <option value="">Selectează tipul...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="deviceModel">Model Device:</label>
+                    <input type="text" id="deviceModel" placeholder="ex: Galaxy Watch 7">
+                </div>
+                <div class="form-group">
+                    <label for="deviceBrand">Brand:</label>
+                    <input type="text" id="deviceBrand" placeholder="ex: Samsung">
+                </div>
+                <div class="form-group">
+                    <label for="devicePrice">Preț (lei):</label>
+                    <input type="number" id="devicePrice" placeholder="ex: 1200">
+                </div>
+                <div class="form-group">
+                    <label for="deviceYear">An Fabricație:</label>
+                    <input type="number" id="deviceYear" placeholder="ex: 2024" min="2020" max="2025">
+                </div>
+            </div>
+
+            <button class="btn" id="btn4" onclick="executeStep4()" disabled>
+                ➕ Adaugă Device + Transfer la GraphQL
+            </button>
+            <div class="loading" id="loading4">
+                <div class="spinner"></div>
+                <p>Se adaugă device-ul nou și se transferă la GraphQL...</p>
+            </div>
+            <div id="status4"></div>
+        </div>
+
+        <!-- Pas 5: Citire din GraphQL -->
+        <div class="step" id="step5">
+            <h3><span class="step-counter">5</span>Citire Finală din GraphQL-Server</h3>
+            <p>Citește toate datele din GraphQL-Server cu filtrare (preț < 1500 lei)</p>
+            <button class="btn" id="btn5" onclick="executeStep5()" disabled>
+                🎯 Citește din GraphQL-Server
+            </button>
+            <div class="loading" id="loading5">
+                <div class="spinner"></div>
+                <p>Se încarcă datele finale din GraphQL...</p>
+            </div>
+            <div id="status5"></div>
+            <div class="table-container hidden" id="table3-container">
+                <h4>Tabel 3 - Date Finale din GraphQL-Server (afișare unificată):</h4>
+                <table id="table3">
+                    <thead>
+                        <tr>
+                            <th>Tip Device</th>
+                            <th>Categorie</th>
+                            <th>Model</th>
+                            <th>Brand</th>
+                            <th>Preț (lei)</th>
+                            <th>An</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer Info -->
+        <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; color: #666;">
+            <p><strong>📊 Arhitectura Demonstrată:</strong></p>
+            <p>RDF4J (SPARQL) → Django Backend → JSON-Server (REST) → Django Backend → GraphQL-Server → Django Backend → Frontend</p>
+            <p style="margin-top: 15px; font-size: 12px;">
+                ✅ Toate transferurile demonstrează interogări cu filtrare (nu dump complet)<br>
+                ✅ Afișările unificate simulează JOIN-uri între tipuri de device-uri și device-urile individuale
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Variabile globale pentru datele transferate între pași
+        let step1Data = [];
+        let step2Data = [];
+        let step3Data = [];
+        let deviceTypes = [];
+
+        // Constante pentru API endpoints
+        const API_BASE = '/api';
+
+        // Funcții utilitare
+        function showLoading(stepNum) {
+            document.getElementById(`loading${stepNum}`).style.display = 'block';
+            document.getElementById(`btn${stepNum}`).disabled = true;
+        }
+
+        function hideLoading(stepNum) {
+            document.getElementById(`loading${stepNum}`).style.display = 'none';
+            document.getElementById(`btn${stepNum}`).disabled = false;
+        }
+
+        function showStatus(stepNum, message, type = 'info') {
+            const statusEl = document.getElementById(`status${stepNum}`);
+            statusEl.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function populateTable(tableId, data) {
+            const tbody = document.querySelector(`#${tableId} tbody`);
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = item.typeName || '';
+                row.insertCell(1).textContent = item.category || '';
+                row.insertCell(2).textContent = item.deviceModel || '';
+                row.insertCell(3).textContent = item.brand || '';
+                row.insertCell(4).textContent = item.price || '';
+                row.insertCell(5).textContent = item.year || '';
+            });
+
+            document.getElementById(`${tableId}-container`).classList.remove('hidden');
+        }
+
+        function populateDropdown(data) {
+            const select = document.getElementById('deviceType');
+            select.innerHTML = '<option value="">Selectează tipul...</option>';
+
+            // Creează set de tipuri unice
+            const uniqueTypes = [...new Set(data.map(item => item.typeName))];
+
+            uniqueTypes.forEach(typeName => {
+                const option = document.createElement('option');
+                option.value = typeName;
+                option.textContent = typeName;
+                select.appendChild(option);
+            });
+
+            deviceTypes = data;
+        }
+
+        // Pas 1: Extragere din RDF4J
+        async function executeStep1() {
+            showLoading(1);
+            showStatus(1, 'Se conectează la RDF4J și execută query SPARQL...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/rdf4j-data/`);
+                const result = await response.json();
+
+                console.log(response);
+
+                if (result.success) {
+                    step1Data = result.data;
+                    populateTable('table1', step1Data);
+                    showStatus(1, `✅ Success! Găsite ${result.count} device-uri din RDF4J. ${result.message}`, 'success');
+
+                    // Activează pasul 2
+                    document.getElementById('btn2').disabled = false;
+                } else {
+                    showStatus(1, `❌ Eroare: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(1, `❌ Eroare conexiune: ${error.message}`, 'error');
+            }
+
+            hideLoading(1);
+        }
+
+        // Pas 2: Transfer la JSON-Server
+        async function executeStep2() {
+            if (step1Data.length === 0) {
+                showStatus(2, '❌ Nu există date din pasul 1. Rulează mai întâi pasul 1.', 'error');
+                return;
+            }
+
+            showLoading(2);
+            showStatus(2, 'Se transferă datele la JSON-Server (REST API)...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/transfer-to-json-server/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ data: step1Data })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus(2, `✅ Success! ${result.message}`, 'success');
+
+                    // Activează pasul 3
+                    document.getElementById('btn3').disabled = false;
+                } else {
+                    showStatus(2, `❌ Eroare: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(2, `❌ Eroare conexiune: ${error.message}`, 'error');
+            }
+
+            hideLoading(2);
+        }
+
+        // Pas 3: Citire din JSON-Server
+        async function executeStep3() {
+            showLoading(3);
+            showStatus(3, 'Se citesc datele din JSON-Server cu filtrare...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/json-server-data/`);
+                const result = await response.json();
+
+                if (result.success) {
+                    step3Data = result.data;
+                    populateTable('table2', step3Data);
+                    populateDropdown(result.device_types || step3Data);
+                    showStatus(3, `✅ Success! Găsite ${result.count} device-uri filtrate din JSON-Server. ${result.message}`, 'success');
+
+                    // Activează pasul 4
+                    document.getElementById('btn4').disabled = false;
+                } else {
+                    showStatus(3, `❌ Eroare: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(3, `❌ Eroare conexiune: ${error.message}`, 'error');
+            }
+
+            hideLoading(3);
+        }
+
+        // Pas 4: Adăugare device nou + transfer la GraphQL
+        async function executeStep4() {
+            // Validare formular
+            const deviceType = document.getElementById('deviceType').value;
+            const deviceModel = document.getElementById('deviceModel').value;
+            const deviceBrand = document.getElementById('deviceBrand').value;
+            const devicePrice = document.getElementById('devicePrice').value;
+            const deviceYear = document.getElementById('deviceYear').value;
+
+            if (!deviceType || !deviceModel || !deviceBrand || !devicePrice || !deviceYear) {
+                showStatus(4, '❌ Te rog completează toate câmpurile formularului.', 'error');
+                return;
+            }
+
+            if (step3Data.length === 0) {
+                showStatus(4, '❌ Nu există date din pasul 3. Rulează mai întâi pașii anteriori.', 'error');
+                return;
+            }
+
+            showLoading(4);
+            showStatus(4, 'Se adaugă device-ul nou și se transferă la GraphQL-Server...', 'info');
+
+            // Construiește device-ul nou
+            const newDevice = {
+                typeName: deviceType,
+                category: 'Unknown', // Va fi completat de backend
+                manufacturer: 'Unknown',
+                deviceModel: deviceModel,
+                brand: deviceBrand,
+                price: devicePrice,
+                year: deviceYear,
+                description: `${deviceBrand} ${deviceModel}`
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/add-to-graphql/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        existing_data: step3Data,
+                        new_device: newDevice
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus(4, `✅ Success! ${result.message}`, 'success');
+
+                    // Resetează formularul
+                    document.getElementById('deviceType').value = '';
+                    document.getElementById('deviceModel').value = '';
+                    document.getElementById('deviceBrand').value = '';
+                    document.getElementById('devicePrice').value = '';
+                    document.getElementById('deviceYear').value = '';
+
+                    // Activează pasul 5
+                    document.getElementById('btn5').disabled = false;
+                } else {
+                    showStatus(4, `❌ Eroare: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(4, `❌ Eroare conexiune: ${error.message}`, 'error');
+            }
+
+            hideLoading(4);
+        }
+
+        // Pas 5: Citire finală din GraphQL
+        async function executeStep5() {
+            showLoading(5);
+            showStatus(5, 'Se citesc datele finale din GraphQL-Server cu filtrare...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/graphql-data/`);
+                const result = await response.json();
+
+                if (result.success) {
+                    populateTable('table3', result.data);
+                    showStatus(5, `✅ Success! Găsite ${result.count} device-uri finale din GraphQL-Server. ${result.message}`, 'success');
+
+                    // Afișează mesaj de completare
+                    setTimeout(() => {
+                        showStatus(5, `🎉 Toate pașii au fost completați cu succes! Transferul de date a fost demonstrat complet.`, 'success');
+                    }, 2000);
+                } else {
+                    showStatus(5, `❌ Eroare: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(5, `❌ Eroare conexiune: ${error.message}`, 'error');
+            }
+
+            hideLoading(5);
+        }
+
+        // Inițializare la încărcarea paginii
+        document.addEventListener('DOMContentLoaded', function() {
+            showStatus(1, '🚀 Gata de începere! Click pe butonul de mai sus pentru a începe transferul de date.', 'info');
+        });
+    </script>
+</body>
+</html>

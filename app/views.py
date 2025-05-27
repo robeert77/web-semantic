@@ -1,23 +1,19 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import requests
 import json
 
 def index(request):
-    """Pagina principală cu frontend-ul"""
     return render(request, 'index.html')
 
 
 @csrf_exempt
 @require_http_methods(["GET"])
 def get_rdf4j_data(request):
-    """Pasul 1: Extrage date din RDF4J cu filtrare"""
     try:
-        # SPARQL query cu filtrare - doar device-urile sub 2000 lei
-        sparql_query = """
-        PREFIX schema: <http://schema.org/>
+        sparql_query = """PREFIX schema: <http://schema.org/>
         PREFIX devices: <http://example.org/devices/>
 
         SELECT ?typeName ?category ?manufacturer ?deviceModel ?brand ?price ?year ?description
@@ -34,21 +30,17 @@ def get_rdf4j_data(request):
                     devices:manufacturingYear ?year ;
                     schema:description ?description .
 
-            # Condiție de filtrare - doar device-urile sub 2000 lei
             FILTER(?price < 2000)
         }
-        ORDER BY ?typeName ?price
-        """
+        ORDER BY ?typeName ?price"""
 
-        # Cerere către RDF4J
         rdf4j_url = "http://localhost:8080/rdf4j-server/repositories/grafexamen"
         headers = {
             'Accept': 'application/sparql-results+json',
             'Content-Type': 'application/sparql-query'
         }
 
-        response = requests.post(f"{rdf4j_url}/query",
-                                 data=sparql_query,
+        response = requests.get(f"{rdf4j_url}?query={sparql_query}",
                                  headers=headers)
 
         if response.status_code == 200:
@@ -74,31 +66,33 @@ def get_rdf4j_data(request):
             'error': f'RDF4J connection error: {str(e)}'
         }, status=500)
 
+def add_cors_headers(response):
+    """Adaugă CORS headers la răspuns"""
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+    response["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    return response
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def transfer_to_json_server(request):
-    """Pasul 2: Transfer date la JSON-Server (REST)"""
     try:
-        # Preia datele din request
         data = json.loads(request.body)
         devices_data = data.get('data', [])
 
         if not devices_data:
-            return JsonResponse({
+            response = JsonResponse({
                 'success': False,
                 'error': 'No data provided'
             }, status=400)
+            return add_cors_headers(response)
 
-        # Separă datele în tipuri și device-uri pentru normalizare
         device_types = {}
         devices = []
 
-        # Procesează datele pentru a crea structuri separate
         for item in devices_data:
             type_key = item['typeName']
 
-            # Adaugă tipul dacă nu există
             if type_key not in device_types:
                 device_types[type_key] = {
                     'id': len(device_types) + 1,
@@ -107,7 +101,6 @@ def transfer_to_json_server(request):
                     'main_manufacturer': item['manufacturer']
                 }
 
-            # Adaugă device-ul
             devices.append({
                 'id': len(devices) + 1,
                 'device_type_id': device_types[type_key]['id'],
@@ -118,16 +111,13 @@ def transfer_to_json_server(request):
                 'description': item.get('description', '')
             })
 
-        # Trimite datele la JSON-Server
         json_server_url = "http://localhost:4000"
 
-        # Șterge datele existente (opțional, pentru test clean)
         try:
             requests.delete(f"{json_server_url}/db")
         except:
-            pass  # Ignoră eroarea dacă nu există
+            pass
 
-        # Trimite tipurile de device-uri
         types_sent = 0
         for device_type in device_types.values():
             response = requests.post(f"{json_server_url}/device_types",
@@ -136,7 +126,6 @@ def transfer_to_json_server(request):
             if response.status_code in [200, 201]:
                 types_sent += 1
 
-        # Trimite device-urile
         devices_sent = 0
         for device in devices:
             response = requests.post(f"{json_server_url}/devices",
@@ -162,11 +151,9 @@ def transfer_to_json_server(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def get_json_server_data(request):
-    """Pasul 3: Citește din JSON-Server cu filtrare și JOIN"""
     try:
         json_server_url = "http://localhost:4000"
 
-        # Preia tipurile și device-urile
         types_response = requests.get(f"{json_server_url}/device_types")
         devices_response = requests.get(f"{json_server_url}/devices")
 
@@ -181,10 +168,8 @@ def get_json_server_data(request):
         types_data = types_response.json()
         devices_data = devices_response.json()
 
-        # Aplicare filtru - doar device-urile Apple (ca exemplu de filtrare)
         filtered_devices = [d for d in devices_data if d['brand'] == 'Apple']
 
-        # JOIN pentru afișare unificată
         unified_data = []
         for device in filtered_devices:
             device_type = next((t for t in types_data if t['id'] == device['device_type_id']), None)
@@ -203,7 +188,7 @@ def get_json_server_data(request):
         return JsonResponse({
             'success': True,
             'data': unified_data,
-            'device_types': types_data,  # Pentru dropdown în frontend
+            'device_types': types_data,
             'count': len(unified_data),
             'message': f'Găsite {len(unified_data)} device-uri Apple din JSON-Server'
         })
@@ -218,7 +203,6 @@ def get_json_server_data(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def add_to_graphql_server(request):
-    """Pasul 4: Adaugă datele existente + nouă înregistrare în GraphQL Server"""
     try:
         data = json.loads(request.body)
         existing_data = data.get('existing_data', [])
@@ -230,18 +214,15 @@ def add_to_graphql_server(request):
                 'error': 'No new device data provided'
             }, status=400)
 
-        # Combină datele existente cu noua înregistrare
         all_data = existing_data.copy()
         all_data.append(new_device)
 
-        # Separă din nou în tipuri și device-uri
         device_types_dict = {}
         devices_list = []
 
         for item in all_data:
             type_key = item['typeName']
 
-            # Adaugă tipul dacă nu există
             if type_key not in device_types_dict:
                 device_types_dict[type_key] = {
                     'id': len(device_types_dict) + 1,
@@ -250,7 +231,6 @@ def add_to_graphql_server(request):
                     'main_manufacturer': item.get('manufacturer', 'Unknown')
                 }
 
-            # Adaugă device-ul
             devices_list.append({
                 'id': len(devices_list) + 1,
                 'device_type_id': device_types_dict[type_key]['id'],
@@ -261,23 +241,18 @@ def add_to_graphql_server(request):
                 'description': item.get('description', '')
             })
 
-        # Structura pentru GraphQL server
         data_structure = {
             'deviceTypes': list(device_types_dict.values()),
             'devices': devices_list
         }
 
-        # Pentru JSON-GraphQL-Server, trebuie să actualizăm baza de date
-        # Metoda 1: POST către fiecare endpoint
         graphql_server_url = "http://localhost:3000"
 
-        # Resetează datele (dacă server-ul suportă)
         try:
             requests.delete(f"{graphql_server_url}/reset")
         except:
             pass
 
-        # Adaugă tipurile
         types_added = 0
         for device_type in data_structure['deviceTypes']:
             response = requests.post(f"{graphql_server_url}/deviceTypes",
@@ -286,7 +261,6 @@ def add_to_graphql_server(request):
             if response.status_code in [200, 201]:
                 types_added += 1
 
-        # Adaugă device-urile
         devices_added = 0
         for device in data_structure['devices']:
             response = requests.post(f"{graphql_server_url}/devices",
@@ -313,11 +287,9 @@ def add_to_graphql_server(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def get_graphql_data(request):
-    """Pasul 5: Citește din GraphQL Server cu query și filtrare"""
     try:
         graphql_server_url = "http://localhost:3000"
 
-        # GraphQL query cu filtrare - doar device-urile sub 1500 lei
         query = {
             'query': '''
             {
@@ -347,7 +319,6 @@ def get_graphql_data(request):
         if response.status_code == 200:
             result = response.json()
 
-            # Verifică dacă există erori GraphQL
             if 'errors' in result:
                 return JsonResponse({
                     'success': False,
@@ -358,7 +329,6 @@ def get_graphql_data(request):
             devices = result.get('data', {}).get('devices', [])
             device_types = result.get('data', {}).get('deviceTypes', [])
 
-            # JOIN pentru afișare unificată
             unified_data = []
             for device in devices:
                 device_type = next((t for t in device_types
