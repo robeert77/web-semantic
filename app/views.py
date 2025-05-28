@@ -118,7 +118,7 @@ def transfer_to_json_server(request):
 
         types_sent = 0
         for category in categories.values():
-            response = requests.post(f"{json_server_url}/device_types",
+            response = requests.post(f"{json_server_url}/categories",
                                      json=category,
                                      headers={'Content-Type': 'application/json'})
             if response.status_code in [200, 201]:
@@ -134,7 +134,7 @@ def transfer_to_json_server(request):
 
         return JsonResponse({
             'success': True,
-            'message': f'Transfer complet: {types_sent} tipuri și {devices_sent} device-uri în JSON-Server',
+            'message': f'Transfer complet: {types_sent} tipuri si {devices_sent} device-uri in JSON-Server',
             'types_count': types_sent,
             'devices_count': devices_sent
         })
@@ -152,30 +152,29 @@ def get_json_server_data(request):
     try:
         json_server_url = "http://localhost:4000"
 
-        types_response = requests.get(f"{json_server_url}/device_types")
+        categories_response = requests.get(f"{json_server_url}/categories")
         devices_response = requests.get(f"{json_server_url}/devices")
 
-        if types_response.status_code != 200 or devices_response.status_code != 200:
+        if categories_response.status_code != 200 or devices_response.status_code != 200:
             return JsonResponse({
                 'success': False,
                 'error': 'Failed to fetch from JSON-Server',
-                'types_status': types_response.status_code,
+                'categories_status': categories_response.status_code,
                 'devices_status': devices_response.status_code
             }, status=500)
 
-        types_data = types_response.json()
+        categories_data = categories_response.json()
         devices_data = devices_response.json()
 
         filtered_devices = [d for d in devices_data if d['brand'] == 'Apple']
 
         unified_data = []
         for device in filtered_devices:
-            device_type = next((t for t in types_data if t['id'] == device['device_type_id']), None)
-            if device_type:
+            category_type = next((t for t in categories_data if t['id'] == device['category_id']), None)
+            if category_type:
                 unified_data.append({
-                    'typeName': device_type['name'],
-                    'category': device_type['category'],
-                    'manufacturer': device_type['main_manufacturer'],
+                    'categoryName': category_type['name'],
+                    'categoryServiceType': category_type['service_type'],
                     'deviceModel': device['model'],
                     'brand': device['brand'],
                     'price': device['price'],
@@ -186,9 +185,9 @@ def get_json_server_data(request):
         return JsonResponse({
             'success': True,
             'data': unified_data,
-            'device_types': types_data,
+            'categories': categories_data,
             'count': len(unified_data),
-            'message': f'Găsite {len(unified_data)} device-uri Apple din JSON-Server'
+            'message': f'Gasite {len(unified_data)} device-uri Apple din JSON-Server'
         })
 
     except Exception as e:
@@ -215,33 +214,32 @@ def add_to_graphql_server(request):
         all_data = existing_data.copy()
         all_data.append(new_device)
 
-        device_types_dict = {}
-        devices_list = []
+        categories = {}
+        devices = []
 
         for item in all_data:
-            type_key = item['typeName']
+            type_key = item['categoryName']
 
-            if type_key not in device_types_dict:
-                device_types_dict[type_key] = {
-                    'id': len(device_types_dict) + 1,
-                    'name': item['typeName'],
-                    'category': item.get('category', 'Unknown'),
-                    'main_manufacturer': item.get('manufacturer', 'Unknown')
+            if type_key not in categories:
+                categories[type_key] = {
+                    'id': len(categories) + 1,
+                    'name': item['categoryName'],
+                    'service_type': item.get('serviceType', 'Unknow'),
                 }
 
-            devices_list.append({
-                'id': len(devices_list) + 1,
-                'device_type_id': device_types_dict[type_key]['id'],
+            devices.append({
+                'id': len(devices) + 1,
+                'category_name': type_key,
                 'model': item['deviceModel'],
                 'brand': item['brand'],
-                'price': float(item['price']),
+                'price': int(float(item['price'])),
                 'manufacturing_year': int(item.get('year', 2024)),
                 'description': item.get('description', '')
             })
 
         data_structure = {
-            'deviceTypes': list(device_types_dict.values()),
-            'devices': devices_list
+            'categories': list(categories.values()),
+            'devices': devices
         }
 
         graphql_server_url = "http://localhost:3000"
@@ -252,27 +250,50 @@ def add_to_graphql_server(request):
             pass
 
         types_added = 0
-        for device_type in data_structure['deviceTypes']:
-            response = requests.post(f"{graphql_server_url}/deviceTypes",
-                                     json=device_type,
+        category_ids = {}
+        for category in data_structure['categories']:
+            mutation_payload = {
+                "query": "mutation { createCategory(name: \"" + category[
+                    'name'] + "\", service_type: \"" + category['service_type'] + "\") { id name service_type } }"
+            }
+
+            response = requests.post(f"{graphql_server_url}/categories",
+                                     json=mutation_payload,
                                      headers={'Content-Type': 'application/json'})
+
             if response.status_code in [200, 201]:
+                category_ids[response.json().get('name')] = response.json().get('id')
                 types_added += 1
 
         devices_added = 0
         for device in data_structure['devices']:
+            mutation_payload = {
+                "query": f"""mutation {{ 
+                               createDevice(
+                                   category_id: {category_ids[device['category_name']]}, 
+                                   model: "{device['model']}", 
+                                   brand: "{device['brand']}", 
+                                   price: {device['price']}, 
+                                   manufacturing_year: {device['manufacturing_year']}, 
+                                   description: "{device['description']}"
+                               ) {{ 
+                                   id model brand price 
+                               }} 
+                           }}"""
+            }
+
             response = requests.post(f"{graphql_server_url}/devices",
-                                     json=device,
+                                     json=mutation_payload,
                                      headers={'Content-Type': 'application/json'})
             if response.status_code in [200, 201]:
                 devices_added += 1
 
         return JsonResponse({
             'success': True,
-            'message': f'Adăugate în GraphQL Server: {types_added} tipuri și {devices_added} device-uri',
+            'message': f'Adaugate in GraphQL Server: {types_added} tipuri si {devices_added} device-uri',
             'types_added': types_added,
             'devices_added': devices_added,
-            'total_devices': len(devices_list)
+            'total_devices': len(devices)
         })
 
     except Exception as e:
@@ -291,20 +312,19 @@ def get_graphql_data(request):
         query = {
             'query': '''
             {
-                devices(where: {price_lt: 1500}) {
+                allDevices(filter: {price_lt: 1500}) {
                     id
                     model
                     brand
                     price
                     manufacturing_year
                     description
-                    device_type_id
+                    category_id
                 }
-                deviceTypes {
+                allCategories {
                     id
                     name
-                    category
-                    main_manufacturer
+                    service_type
                 }
             }
             '''
@@ -324,18 +344,17 @@ def get_graphql_data(request):
                     'details': result['errors']
                 }, status=400)
 
-            devices = result.get('data', {}).get('devices', [])
-            device_types = result.get('data', {}).get('deviceTypes', [])
+            devices = result.get('data', {}).get('allDevices', [])
+            categories = result.get('data', {}).get('allCategories', [])
 
             unified_data = []
             for device in devices:
-                device_type = next((t for t in device_types
-                                    if t['id'] == device['device_type_id']), None)
-                if device_type:
+                category = next((t for t in categories
+                                    if t['id'] == device['category_id']), None)
+                if category:
                     unified_data.append({
-                        'typeName': device_type['name'],
-                        'category': device_type['category'],
-                        'manufacturer': device_type['main_manufacturer'],
+                        'categoryName': category['name'],
+                        'service_type': category['service_type'],
                         'deviceModel': device['model'],
                         'brand': device['brand'],
                         'price': device['price'],

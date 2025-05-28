@@ -249,7 +249,6 @@
                 <table id="table2">
                     <thead>
                         <tr>
-                            <th>Tip Device</th>
                             <th>Categorie</th>
                             <th>Model</th>
                             <th>Brand</th>
@@ -270,8 +269,8 @@
             <div class="form-container">
                 <h4>📝 Formular Device Nou:</h4>
                 <div class="form-group">
-                    <label for="deviceType">Tip Device (Dropdown):</label>
-                    <select id="deviceType">
+                    <label for="categoryName">Tip Device (Dropdown):</label>
+                    <select id="categoryName">
                         <option value="">Selectează tipul...</option>
                     </select>
                 </div>
@@ -320,7 +319,6 @@
                 <table id="table3">
                     <thead>
                         <tr>
-                            <th>Tip Device</th>
                             <th>Categorie</th>
                             <th>Model</th>
                             <th>Brand</th>
@@ -387,11 +385,11 @@
         }
 
         function populateDropdown(data) {
-            const select = document.getElementById('deviceType');
+            const select = document.getElementById('categoryName');
             select.innerHTML = '<option value="">Selectează tipul...</option>';
 
             // Creează set de tipuri unice
-            const uniqueTypes = [...new Set(data.map(item => item.name))];
+            const uniqueTypes = [...new Set(data.map(item => item.categoryName))];
 
             uniqueTypes.forEach(name => {
                 const option = document.createElement('option');
@@ -496,13 +494,13 @@
         // Pas 4: Adăugare device nou + transfer la GraphQL
         async function executeStep4() {
             // Validare formular
-            const deviceType = document.getElementById('deviceType').value;
+            const categoryName = document.getElementById('categoryName').value;
             const deviceModel = document.getElementById('deviceModel').value;
             const deviceBrand = document.getElementById('deviceBrand').value;
             const devicePrice = document.getElementById('devicePrice').value;
             const deviceYear = document.getElementById('deviceYear').value;
 
-            if (!deviceType || !deviceModel || !deviceBrand || !devicePrice || !deviceYear) {
+            if (!categoryName || !deviceModel || !deviceBrand || !devicePrice || !deviceYear) {
                 showStatus(4, '❌ Te rog completează toate câmpurile formularului.', 'error');
                 return;
             }
@@ -517,9 +515,8 @@
 
             // Construiește device-ul nou
             const newDevice = {
-                typeName: deviceType,
+                categoryName: categoryName,
                 category: 'Unknown', // Va fi completat de backend
-                manufacturer: 'Unknown',
                 deviceModel: deviceModel,
                 brand: deviceBrand,
                 price: devicePrice,
@@ -548,7 +545,7 @@
                     showStatus(4, `✅ Success! ${result.message}`, 'success');
 
                     // Resetează formularul
-                    document.getElementById('deviceType').value = '';
+                    document.getElementById('categoryName').value = '';
                     document.getElementById('deviceModel').value = '';
                     document.getElementById('deviceBrand').value = '';
                     document.getElementById('devicePrice').value = '';
