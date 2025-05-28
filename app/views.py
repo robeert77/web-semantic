@@ -16,12 +16,11 @@ def get_rdf4j_data(request):
         sparql_query = """PREFIX schema: <http://schema.org/>
         PREFIX devices: <http://example.org/devices/>
 
-        SELECT ?typeName ?category ?manufacturer ?deviceModel ?brand ?price ?year ?description
+        SELECT ?categoryName ?serviceType ?deviceModel ?brand ?price ?year ?description
         WHERE {
             ?type a schema:Category ;
-                  schema:name ?typeName ;
-                  devices:category ?category ;
-                  devices:mainManufacturer ?manufacturer .
+                  schema:name ?categoryName ;
+                  schema:serviceType ?serviceType .
 
             ?device schema:category ?type ;
                     schema:model ?deviceModel ;
@@ -32,7 +31,7 @@ def get_rdf4j_data(request):
 
             FILTER(?price < 2000)
         }
-        ORDER BY ?typeName ?price"""
+        ORDER BY ?categoryName ?price"""
 
         rdf4j_url = "http://localhost:8080/rdf4j-server/repositories/grafexamen"
         headers = {
@@ -51,7 +50,7 @@ def get_rdf4j_data(request):
                 'success': True,
                 'data': processed_data,
                 'count': len(processed_data),
-                'message': f'Găsite {len(processed_data)} device-uri sub 2000 lei din RDF4J'
+                'message': f'Gasite {len(processed_data)} device-uri sub 2000 lei din RDF4J'
             })
         else:
             return JsonResponse({
@@ -87,23 +86,22 @@ def transfer_to_json_server(request):
             }, status=400)
             return add_cors_headers(response)
 
-        device_types = {}
+        categories = {}
         devices = []
 
         for item in devices_data:
-            type_key = item['typeName']
+            type_key = item['categoryName']
 
-            if type_key not in device_types:
-                device_types[type_key] = {
-                    'id': len(device_types) + 1,
-                    'name': item['typeName'],
-                    'category': item['category'],
-                    'main_manufacturer': item['manufacturer']
+            if type_key not in categories:
+                categories[type_key] = {
+                    'id': len(categories) + 1,
+                    'name': item['categoryName'],
+                    'service_type': item['serviceType']
                 }
 
             devices.append({
                 'id': len(devices) + 1,
-                'device_type_id': device_types[type_key]['id'],
+                'category_id': categories[type_key]['id'],
                 'model': item['deviceModel'],
                 'brand': item['brand'],
                 'price': float(item['price']),
@@ -119,9 +117,9 @@ def transfer_to_json_server(request):
             pass
 
         types_sent = 0
-        for device_type in device_types.values():
+        for category in categories.values():
             response = requests.post(f"{json_server_url}/device_types",
-                                     json=device_type,
+                                     json=category,
                                      headers={'Content-Type': 'application/json'})
             if response.status_code in [200, 201]:
                 types_sent += 1
@@ -372,9 +370,8 @@ def process_rdf4j_results(rdf_data):
     if 'results' in rdf_data and 'bindings' in rdf_data['results']:
         for binding in rdf_data['results']['bindings']:
             processed.append({
-                'typeName': binding.get('typeName', {}).get('value', ''),
-                'category': binding.get('category', {}).get('value', ''),
-                'manufacturer': binding.get('manufacturer', {}).get('value', ''),
+                'categoryName': binding.get('categoryName', {}).get('value', ''),
+                'serviceType': binding.get('serviceType', {}).get('value', ''),
                 'deviceModel': binding.get('deviceModel', {}).get('value', ''),
                 'brand': binding.get('brand', {}).get('value', ''),
                 'price': binding.get('price', {}).get('value', '0'),
